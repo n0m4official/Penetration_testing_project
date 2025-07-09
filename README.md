@@ -4,7 +4,7 @@
 It does not perform harmful actions or replicate actual malware behavior beyond harmless simulation.  
 **Unauthorized use is unethical and may be illegal.**
 
---
+---
 
 ## 💡 Overview
 
