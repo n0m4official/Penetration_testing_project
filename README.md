@@ -64,7 +64,7 @@ It simulates several typical "malware-like" actions without harming the system, 
 - `process_discovery.txt`: running process list
 - `breach_notice_<timestamp>.txt`: harmless breach notice on Desktop
 
---
+---
 
 ## 💻 Usage
 
