@@ -2,41 +2,68 @@ import os
 import subprocess
 import platform
 import socket
+import json
+import zipfile
+import sys
+import time
+import threading
+import tkinter as tk
+from tkinter import scrolledtext, messagebox
 from datetime import datetime
 
+# ---------------- Setup ----------------
 session_log = []
+stealth_mode = False
+timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+log_filename = f"log_{timestamp_str}.txt"
+
+def update_gui_log(message):
+    if log_text:
+        log_text.config(state="normal")
+        log_text.insert(tk.END, message + "\n")
+        log_text.see(tk.END)
+        log_text.config(state="disabled")
 
 def log_action(message):
-    with open("log.txt", "a") as log_file:
+    with open(log_filename, "a") as log_file:
         log_file.write(f"{datetime.now()}: {message}\n")
-    session_log.append(message)
+    session_log.append({"timestamp": datetime.now().isoformat(), "event": message})
+    if not stealth_mode:
+        update_gui_log(f"{datetime.now().strftime('%H:%M:%S')} - {message}")
+
+def write_json_log():
+    json_filename = f"session_log_{timestamp_str}.json"
+    with open(json_filename, "w") as json_file:
+        json.dump(session_log, json_file, indent=4, default=str)
+
+# ---------------- Simulations ----------------
+def simulate_exfiltration():
+    exfil_filename = f"exfil_payload_{timestamp_str}.zip"
+    with zipfile.ZipFile(exfil_filename, 'w') as exfil_zip:
+        for f in ["discovery_log.txt", "process_discovery.txt", "fake_credentials.txt", log_filename, f"session_log_{timestamp_str}.json"]:
+            if os.path.exists(f):
+                exfil_zip.write(f)
+    log_action(f"Simulated exfiltration archive created: {exfil_filename}")
 
 def simulate_persistence():
-    print("[SIMULATION] Would create startup registry entry or scheduled task to persist.")
     log_action("Simulated persistence mechanism creation.")
 
 def simulate_credential_harvesting():
     fake_creds = "username: admin\npassword: password123\n"
     with open("fake_credentials.txt", "w") as f:
         f.write(fake_creds)
-    print("[SIMULATION] Fake credentials file created.")
-    log_action("Simulated credential harvesting, fake file dropped.")
+    log_action("Simulated credential harvesting (fake file dropped).")
 
 def simulate_discovery():
-    info = f"System: {platform.system()} {platform.release()}\n"
-    info += f"Node: {platform.node()}\n"
-    info += f"User: {os.getlogin()}\n"
+    info = f"System: {platform.system()} {platform.release()}\nNode: {platform.node()}\nUser: {os.getlogin()}\n"
     try:
         hostname = socket.gethostname()
         ip_addr = socket.gethostbyname(hostname)
         info += f"IP: {ip_addr}\n"
     except:
         info += "IP: Unknown\n"
-    
     with open("discovery_log.txt", "w") as f:
         f.write(info)
-    
-    print("[SIMULATION] System discovery log created.")
     log_action("Simulated system discovery.")
 
 def drop_text_file():
@@ -50,32 +77,30 @@ def drop_text_file():
     filename = f"breach_notice_{timestamp}.txt"
 
     desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+    if not os.path.exists(desktop):
+        desktop = os.getcwd()
     filepath = os.path.join(desktop, filename)
-
     with open(filepath, "w") as file:
         file.write(message)
-    
-    print(f"[+] Notice file created at: {filepath}")
-    log_action("Dropped breach notice file on Desktop")
+
+    log_action(f"Dropped breach notice file at: {filepath}")
 
 def open_notepad():
-    subprocess.Popen(["notepad.exe"])
-    print("[+] Notepad opened.")
-    log_action("Opened Notepad.")
+    try:
+        subprocess.Popen(["notepad.exe"])
+        log_action("Opened Notepad.")
+    except Exception as e:
+        log_action(f"Failed to open Notepad: {e}")
 
 def simulate_network_beacon():
-    # Simulated by printing and logging for now
-    print("[+] Simulated network beacon to attacker C2 server.")
     log_action("Simulated network beacon.")
 
 def show_popup():
     try:
         import ctypes
         ctypes.windll.user32.MessageBoxW(0, "System breached (test message).", "PenTest Sim", 0)
-        print("[+] Popup message displayed.")
         log_action("Displayed popup message.")
     except Exception as e:
-        print("[-] Popup message failed: ", e)
         log_action(f"Popup failed: {e}")
 
 def simulate_privilege_check():
@@ -83,29 +108,20 @@ def simulate_privilege_check():
         import ctypes
         is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
         if is_admin:
-            print("[SIMULATION] Running as admin (privilege escalation succeeded).")
             log_action("Privilege check: running as admin.")
         else:
-            print("[SIMULATION] Not running as admin (would attempt escalation).")
-            log_action("Privilege check: not admin, escalation would be attempted.")
+            log_action("Privilege check: not admin, would attempt escalation.")
     except:
-        print("[SIMULATION] Privilege check unavailable on this OS.")
         log_action("Privilege check: unavailable.")
 
 def simulate_process_discovery():
     try:
-        if platform.system() == "Windows":
-            cmd = "tasklist"
-        else:
-            cmd = "ps -aux"
-
+        cmd = "tasklist" if platform.system() == "Windows" else "ps -aux"
         processes = os.popen(cmd).read()
         with open("process_discovery.txt", "w") as f:
             f.write(processes)
-        print("[SIMULATION] Process list written to process_discovery.txt.")
         log_action("Simulated process discovery.")
     except Exception as e:
-        print(f"[-] Process discovery failed: {e}")
         log_action(f"Process discovery failed: {e}")
 
 def generate_report():
@@ -114,59 +130,90 @@ def generate_report():
         report.write("="*40 + "\n")
         for entry in session_log:
             report.write(f"- {entry}\n")
-        report.write("\n")
-        report.write("\nSummary:\n")
-        report.write("This was a simulated test. No harm was done to the system. All actions were educational.\n")
-        report.write("Recommendations:\n")
-        report.write("- Review logs and detect these activities with EDR or AV solutions.\n")
-        report.write("- Regularly audit startup entries and scheduled tasks.\n")
-        report.write("- Monitor unexpected network connections.\n")
-        report.write("- Educate staff on social engineering and phishing risks.\n")
+        report.write("\nSummary:\nThis was a simulated test. No harm was done to the system. All actions were educational.\n")
+        report.write("Recommendations:\n- Review logs and detect these activities with EDR or AV solutions.\n- Regularly audit startup entries.\n- Monitor unexpected network connections.\n- Educate staff on phishing risks.\n")
+    write_json_log()
+    log_action("Final report generated.")
 
+def run_all_simulations():
+    drop_text_file()
+    open_notepad()
+    simulate_network_beacon()
+    show_popup()
+    simulate_persistence()
+    simulate_credential_harvesting()
+    simulate_discovery()
+    simulate_privilege_check()
+    simulate_process_discovery()
+    simulate_exfiltration()
+    log_action("All simulations run (GUI).")
 
-def main_menu():
-    while True:
-        print("\n=== Penetration Test Simulation ===")
-        print("1. Drop breach notice file")
-        print("2. Open Notepad")
-        print("3. Simulate network beacon")
-        print("4. Show popup message")
-        print("5. Simulate persistence")
-        print("6. Simulate credential harvesting")
-        print("7. Simulate system discovery")
-        print("8. Simulate privilege check")
-        print("9. Simulate process discovery")
-        print("10. Exit and generate final report")
-        choice = input("Select an option: ")
+# ---------------- GUI ----------------
+def toggle_stealth():
+    global stealth_mode
+    stealth_mode = not stealth_mode
+    stealth_btn.config(text=f"Stealth Mode: {'ON' if stealth_mode else 'OFF'}")
+    log_action(f"Stealth mode toggled to {'ON' if stealth_mode else 'OFF'}.")
 
-        if choice == "1":
-            drop_text_file()
-        elif choice == "2":
-            open_notepad()
-        elif choice == "3":
-            simulate_network_beacon()
-        elif choice == "4":
-            show_popup()
-        elif choice == "5":
-            simulate_persistence()
-        elif choice == "6":
-            simulate_credential_harvesting()
-        elif choice == "7":
-            simulate_discovery()
-        elif choice == "8":
-            simulate_privilege_check()
-        elif choice == "9":
-            simulate_process_discovery()
-        elif choice == "10":
-            print("Exiting simulation and generating final report...")
-            log_action("Simulation exited by user.")
-            generate_report()
-            print("Final report saved as final_report.txt")
-            break
-        else:
-            print("Invalid option. Please try again.")
+def run_action_threaded(action_func):
+    t = threading.Thread(target=action_func)
+    t.start()
 
-if __name__ == "__main__":
-    print("⚠️  WARNING: This is a harmless simulation tool for authorized educational use only.")
-    print("Unauthorized use is unethical and may be illegal.\n")
-    main_menu()
+# Dark mode colors
+DARK_BG = "#2e2e2e"
+DARK_BTN_BG = "#3c3f41"
+DARK_BTN_ACTIVE = "#505357"
+LIGHT_TEXT = "#e1e1e1"
+ACCENT_COLOR = "#61afef"
+
+root = tk.Tk()
+root.title("PenTest Simulation")
+root.geometry("750x600")
+root.configure(bg=DARK_BG)
+
+header = tk.Label(root, text="PenTest Simulation", font=("Courier", 16, "bold"),
+                  bg=DARK_BG, fg=ACCENT_COLOR)
+header.pack(pady=10)
+
+btn_frame = tk.Frame(root, bg=DARK_BG)
+btn_frame.pack()
+
+actions = [
+    ("Drop Notice File", drop_text_file),
+    ("Open Notepad", open_notepad),
+    ("Network Beacon", simulate_network_beacon),
+    ("Show Popup", show_popup),
+    ("Persistence", simulate_persistence),
+    ("Credential Harvest", simulate_credential_harvesting),
+    ("Discovery", simulate_discovery),
+    ("Privilege Check", simulate_privilege_check),
+    ("Process Discovery", simulate_process_discovery),
+    ("Exfiltration", simulate_exfiltration),
+    ("Run All", run_all_simulations)
+]
+
+for text, func in actions:
+    b = tk.Button(btn_frame, text=text, width=20,
+                  command=lambda f=func: run_action_threaded(f),
+                  bg=DARK_BTN_BG, fg=LIGHT_TEXT, activebackground=DARK_BTN_ACTIVE,
+                  activeforeground=LIGHT_TEXT, relief="flat")
+    b.pack(pady=2)
+
+stealth_btn = tk.Button(root, text="Stealth Mode: OFF", width=20,
+                       command=toggle_stealth,
+                       bg=DARK_BTN_BG, fg=LIGHT_TEXT, activebackground=DARK_BTN_ACTIVE,
+                       activeforeground=LIGHT_TEXT, relief="flat")
+stealth_btn.pack(pady=5)
+
+report_btn = tk.Button(root, text="Generate Report & Exit", width=25,
+                       command=lambda: [generate_report(), root.destroy()],
+                       bg=ACCENT_COLOR, fg=DARK_BG, activebackground="#5190e3",
+                       activeforeground=DARK_BG, relief="flat")
+report_btn.pack(pady=10)
+
+log_text = scrolledtext.ScrolledText(root, state="disabled", height=15,
+                                     bg="#1e1e1e", fg=LIGHT_TEXT, insertbackground=LIGHT_TEXT,
+                                     relief="flat", borderwidth=0)
+log_text.pack(fill="both", expand=True, padx=10, pady=10)
+
+root.mainloop()
