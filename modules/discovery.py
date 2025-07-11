@@ -1,16 +1,28 @@
+import os
 import platform
 import socket
-import os
+from datetime import datetime
 from core.logger import log_action
 
 def simulate_discovery(stealth_mode=False, gui_callback=None):
-    info = f"System: {platform.system()} {platform.release()}\nNode: {platform.node()}\nUser: {os.getlogin()}\n"
     try:
-        hostname = socket.gethostname()
-        ip_addr = socket.gethostbyname(hostname)
-        info += f"IP: {ip_addr}\n"
-    except:
-        info += "IP: Unknown\n"
-    with open("discovery_log.txt", "w") as f:
-        f.write(info)
-    log_action("Simulated system discovery.", stealth_mode, gui_callback)
+        info = f"System: {platform.system()} {platform.release()}\n"
+        info += f"Node: {platform.node()}\n"
+        info += f"User: {os.getlogin()}\n"
+
+        try:
+            hostname = socket.gethostname()
+            ip_addr = socket.gethostbyname(hostname)
+            info += f"IP Address: {ip_addr}\n"
+        except:
+            info += "IP Address: Unknown\n"
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"discovery_log_{timestamp}.txt"
+
+        with open(filename, "w") as f:
+            f.write(info)
+
+        log_action(f"Simulated system discovery. Info saved to: {filename}", stealth_mode, gui_callback)
+    except Exception as e:
+        log_action(f"Discovery failed: {e}", stealth_mode, gui_callback)
