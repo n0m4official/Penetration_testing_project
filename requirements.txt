@@ -1,2 +1,2 @@
-# No external packages required
-# Requires Python 3.x
+tkinter
+pyinstaller
