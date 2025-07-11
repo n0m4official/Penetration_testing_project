@@ -12,10 +12,8 @@ def simulate_exfiltration(stealth_mode=False, gui_callback=None):
             "discovery_log.txt",
             "process_discovery.txt",
             "fake_credentials.txt",
-            # Add your log files dynamically
         ]
 
-        # Include logs from this session if they exist
         log_files = [f for f in os.listdir('.') if f.startswith("log_") and f.endswith(".txt")]
         json_logs = [f for f in os.listdir('.') if f.startswith("session_log_") and f.endswith(".json")]
 
