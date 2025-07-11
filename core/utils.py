@@ -1,5 +1,4 @@
 import os
-import subprocess
 from datetime import datetime
 from core.logger import log_action, write_json_log
 
